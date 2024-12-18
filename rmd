@@ -1,0 +1,290 @@
+
+```{r}
+depression_anxiety_data <- read.csv("C:/depression_anxiety_data.csv")
+View(depression_anxiety_data)
+```
+
+
+
+```{r}
+
+summary(depression_anxiety_data)
+anyNA(depression_anxiety_data) 
+boxplot(depression_anxiety_data$bmi, main = "BMI Boxplot") 
+
+
+clean_data <- na.omit(depression_anxiety_data)
+
+summary(clean_data$phq_score) # PHQ Score
+summary(clean_data$gad_score) # GAD Score
+summary(clean_data$bmi)       # BMI
+summary(clean_data$epworth_score) # Sleep Score
+
+```
+
+
+
+```{r}
+
+hist(clean_data$phq_score, main = "Depression (PHQ) Score", 
+     xlab = "PHQ Score", col = color_palette[1], border = "black")
+hist(clean_data$gad_score, main = "Anxiety (GAD) Score", 
+     xlab = "GAD Score", col = color_palette[2], border = "black")
+hist(clean_data$bmi, main = "BMI Distribution", 
+     xlab = "BMI", col = color_palette[3], border = "black")
+hist(clean_data$epworth_score, main = "Sleep Score Distribution", 
+     xlab = "Epworth Score", col = color_palette[4], border = "black")
+
+
+boxplot(clean_data$phq_score ~ clean_data$who_bmi, 
+        main = "Depression by BMI Categories",
+        xlab = "BMI Categories", ylab = "PHQ Score", 
+        col = color_palette[2], border = "black")
+
+boxplot(clean_data$gad_score ~ clean_data$who_bmi, 
+        main = "Anxiety by BMI Categories",
+        xlab = "BMI Categories", ylab = "GAD Score", 
+        col = color_palette[4], border = "black")
+
+
+```
+
+
+```{r}
+library(ggplot2)
+
+ggplot(clean_data, aes(x = epworth_score, y = phq_score)) +
+    geom_point(alpha = 0.5, color = "blue") +
+    stat_density2d(aes(fill = ..level..), geom = "polygon", alpha = 0.3) +
+    geom_smooth(method = "lm", color = "red") +
+    labs(title = "Depression (PHQ) vs Sleep (Epworth) with Density",
+         x = "Epworth Score", y = "PHQ Score")
+
+```
+
+```{r}
+
+clean_data <- na.omit(clean_data)
+clean_data$epworth_group <- cut(clean_data$epworth_score,
+                                breaks = c(0, 5, 10, 15, 32),
+                                labels = c("Low", "Moderate", "High", "Very High"))
+
+ggplot(clean_data, aes(x = epworth_group, y = phq_score, fill = epworth_group)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.5) +
+    scale_fill_manual(values = color_scale) +
+    guides(fill = guide_legend(title = "Sleep (Epworth) Categories")) +
+    labs(title = "Depression by Sleep (Epworth) Categories",
+         x = "Sleep (Epworth) Categories", y = "PHQ Score") +
+    theme_minimal()
+
+
+
+
+```
+
+
+```{r}
+library(ggplot2)
+library(reshape2)
+
+cor_melt <- melt(cor_matrix)
+ggplot(cor_melt, aes(x = Var1, y = Var2, fill = value)) +
+    geom_tile() +
+    scale_fill_gradientn(colours = c("#FFFF00", "#00FF00", "#007FFF", "#663399"),
+                         values = scales::rescale(c(-1, -0.5, 0.5, 1)),
+                         limits = c(-1, 1), name = "Correlation") +
+    theme_minimal() +
+    labs(title = "Correlation Heatmap", x = "", y = "")
+
+
+```
+
+
+
+```{r}
+ggplot(clean_data, aes(x = epworth_group, y = gad_score, fill = epworth_group)) +
+    geom_violin(trim = FALSE) +
+    geom_boxplot(width = 0.1, color = "black") +
+    scale_fill_manual(values = c("Low" = "#FFFF00",      
+                                 "Moderate" = "#66FF66", 
+                                 "High" = "#9370DB",     
+                                 "Very High" = "#003366")) + 
+    labs(title = "Anxiety by Sleep (Epworth) Categories",
+         x = "Sleep (Epworth) Categories", y = "GAD Score") +
+    theme_minimal()
+
+
+
+```
+
+
+```{r}
+
+clean_data_filtered <- clean_data %>%
+    filter(!is.na(who_bmi) & who_bmi != "Not Available") %>% 
+    droplevels() 
+color_palette <- c("Underweight" = "#FFFF00",     
+                   "Normal" = "#00FF00",         
+                   "Overweight" = "#00BFFF",     
+                   "Class I Obesity" = "#0000FF",
+                   "Class II Obesity" = "#4B0082",
+                   "Class III Obesity" = "#800080")
+
+ggplot(clean_data_filtered, aes(x = epworth_score, y = phq_score, color = who_bmi)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", se = FALSE) +
+    facet_wrap(~who_bmi) +
+    scale_color_manual(values = color_palette) +
+    labs(title = "Depression (PHQ) vs Sleep (Epworth) by BMI Category",
+         x = "Epworth Score", y = "PHQ Score", color = "BMI Category") +
+    theme_minimal()
+
+
+
+
+```
+
+
+```{r}
+
+clean_data <- na.omit(clean_data)
+
+phq_model <- lm(phq_score ~ bmi + epworth_score, data = clean_data)
+
+clean_data$phq_pred <- predict(phq_model, newdata = clean_data)
+
+library(ggplot2)
+
+ggplot(clean_data, aes(x = phq_score, y = phq_pred)) +
+    geom_point(color = "blue", alpha = 0.6) +
+    geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+    labs(title = "Actual vs Predicted PHQ Scores",
+         x = "Actual PHQ Score", y = "Predicted PHQ Score") +
+    theme_minimal()
+
+
+```
+
+```{r}
+
+cor_data <- clean_data[, c("phq_score", "gad_score", "bmi", "epworth_score")]
+cor_matrix <- cor(cor_data, use = "complete.obs")
+print(cor_matrix)
+
+library(corrplot)
+corrplot(cor_matrix, method = "circle", type = "upper", title = "Correlation Matrix")
+
+```
+
+```{r}
+
+phq_model <- lm(phq_score ~ bmi + epworth_score, data = clean_data)
+summary(phq_model)
+
+gad_model <- lm(gad_score ~ bmi + epworth_score, data = clean_data)
+summary(gad_model)
+
+```
+```{r}
+library(ggplot2)
+library(dplyr)
+
+clean_data <- na.omit(depression_anxiety_data)
+
+clean_data$gender <- as.factor(clean_data$gender)
+
+phq_model <- lm(phq_score ~ bmi + epworth_score + age + gender, data = clean_data)
+
+gad_model <- lm(gad_score ~ bmi + epworth_score + age + gender, data = clean_data)
+
+summary(phq_model)
+summary(gad_model)
+
+clean_data$phq_pred <- predict(phq_model, clean_data)
+clean_data$gad_pred <- predict(gad_model, clean_data)
+
+ggplot(clean_data, aes(x = phq_score, y = phq_pred)) +
+    geom_point(color = "blue", alpha = 0.6) +
+    geom_abline(slope = 1, intercept = 0, color = "red") +
+    labs(title = "Actual vs Predicted PHQ Score",
+         x = "Actual PHQ Score", y = "Predicted PHQ Score") +
+    theme_minimal()
+
+ggplot(clean_data, aes(x = gad_score, y = gad_pred)) +
+    geom_point(color = "green", alpha = 0.6) +
+    geom_abline(slope = 1, intercept = 0, color = "red") +
+    labs(title = "Actual vs Predicted GAD Score",
+         x = "Actual GAD Score", y = "Predicted GAD Score") +
+    theme_minimal()
+
+```
+
+
+
+```{r}
+
+phq_interaction <- lm(phq_score ~ bmi * epworth_score + age + gender, data = clean_data)
+summary(phq_interaction)
+
+gad_interaction <- lm(gad_score ~ bmi * epworth_score + age + gender, data = clean_data)
+summary(gad_interaction)
+
+```
+
+```{r}
+
+phq_anova <- aov(phq_score ~ who_bmi, data = clean_data)
+summary(phq_anova)
+
+gad_anova <- aov(gad_score ~ who_bmi, data = clean_data)
+summary(gad_anova)
+kruskal.test(phq_score ~ who_bmi, data = clean_data)
+kruskal.test(gad_score ~ who_bmi, data = clean_data)
+
+```
+
+
+```{r}
+
+ggplot(clean_data, aes(x = who_bmi, y = phq_score, fill = who_bmi)) +
+    geom_violin() +
+    geom_boxplot(width = 0.1, color = "black") +
+    labs(title = "PHQ Score by BMI Categories",
+         x = "BMI Categories", y = "PHQ Score") +
+    scale_fill_manual(values = c("Underweight" = "#FFFF00",   # Sarı
+                                 "Normal" = "#00FF00",       # Yeşil
+                                 "Overweight" = "#00BFFF",   # Açık Mavi
+                                 "Class I Obesity" = "#0000FF",
+                                 "Class II Obesity" = "#4B0082",
+                                 "Class III Obesity" = "#800080")) +
+    theme_minimal()
+ggplot(clean_data, aes(x = who_bmi, y = gad_score, fill = who_bmi)) +
+    geom_violin() +
+    geom_boxplot(width = 0.1, color = "black") +
+    labs(title = "GAD Score by BMI Categories",
+         x = "BMI Categories", y = "GAD Score") +
+    theme_minimal()
+
+```
+
+
+
+```{r}
+
+ggplot(clean_data, aes(x = phq_score, fill = who_bmi)) +
+    geom_density(alpha = 0.6) +
+    labs(title = "Density of PHQ Score by BMI Categories",
+         x = "PHQ Score", y = "Density") +
+    theme_minimal()
+
+ggplot(clean_data, aes(x = gad_score, fill = who_bmi)) +
+    geom_density(alpha = 0.6) +
+    labs(title = "Density of GAD Score by BMI Categories",
+         x = "GAD Score", y = "Density") +
+    theme_minimal()
+
+```
+
+
+
